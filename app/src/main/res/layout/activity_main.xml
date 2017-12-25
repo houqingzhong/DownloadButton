@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="16dp"
+    tools:context="com.xuejinwei.downloadbuttondemo.MainActivity">
+
+    <com.xuejinwei.downloadbutton.DownloadButton
+        android:layout_width="200dp"
+        android:layout_height="100dp"
+        android:text="下载"
+        app:contentPaddingLR="10dp"
+        app:contentPaddingTB="8dp"/>
+
+</LinearLayout>

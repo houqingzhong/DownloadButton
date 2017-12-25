@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="DownloadButton">
+        <attr name="android:text"/>
+        <attr name="android:textSize"/>
+        <attr name="android:textColor"/>
+        <attr name="contentPaddingTB" format="dimension|reference"/>
+        <attr name="contentPaddingLR" format="dimension|reference"/>
+        <attr name="strokeWidth" format="dimension|reference"/>
+        <attr name="radiu" format="dimension|reference"/>
+        <attr name="rectwidth" format="dimension|reference"/>
+    </declare-styleable>
+</resources>
