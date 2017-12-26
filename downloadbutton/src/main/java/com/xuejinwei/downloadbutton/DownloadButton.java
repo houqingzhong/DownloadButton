@@ -1,5 +1,7 @@
 package com.xuejinwei.downloadbutton;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -45,6 +47,9 @@ public class DownloadButton extends View {
     private int mLeftRightPadding;// 中间文字左右边距
 
     private int mRadiu;// 半径
+    private int mProgress = 0;// 百分比
+
+    private boolean isLoadingEnd = false;// 是否loading动画结束
 
     private Paint     mPaint;
     private TextPaint mTextPaint;// 中间文字画笔
@@ -79,7 +84,7 @@ public class DownloadButton extends View {
                 TypedValue.COMPLEX_UNIT_SP, DEFAULT_TEXTVIEW_SIZE, context.getResources().getDisplayMetrics()));
         mStrokeWidth = typedArray.getDimensionPixelOffset(R.styleable.DownloadButton_strokeWidth, (int) TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, DEFAULT_STROKE_WIDTH, context.getResources().getDisplayMetrics()));
-        mStrokeWidthdBinary = mStrokeWidth / 2;
+        mStrokeWidthdBinary = mStrokeWidth;
         mTopBottomPadding = typedArray.getDimensionPixelOffset(R.styleable.DownloadButton_contentPaddingTB, (int) TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, DEFAULT_TB_PADDING, context.getResources().getDisplayMetrics()));
         mLeftRightPadding = typedArray.getDimensionPixelOffset(R.styleable.DownloadButton_contentPaddingLR, (int) TypedValue.applyDimension(
@@ -95,7 +100,6 @@ public class DownloadButton extends View {
         mPaint.setColor(mTextColor);
         mPaint.setStrokeCap(Paint.Cap.ROUND);
         mPaint.setStyle(Paint.Style.STROKE);
-        mPaint.setStrokeWidth(mStrokeWidth);
 
         mTextPaint = new TextPaint();
         mTextPaint.setColor(mTextColor);
@@ -105,12 +109,12 @@ public class DownloadButton extends View {
         contentRect = new RectF();
         Log.i(TAG, "mTextSize:" + mTextSize + ";mStrokeWidth:" + mStrokeWidth + ";mTopBottomPadding" + mTopBottomPadding + ";mLeftRightPadding" + mLeftRightPadding);
 
-        setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                shrink();
-            }
-        });
+//        setOnClickListener(new OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                shrink();
+//            }
+//        });
     }
 
     @Override
@@ -171,12 +175,19 @@ public class DownloadButton extends View {
      */
     private void drawRoundRect(Canvas canvas, int cx, int cy) {
 
+        mPaint.setStrokeWidth(mStrokeWidth / 3);
+
         left = cx - mRoundRectWidthBinary;
         top = cy - mRoundRectHeighBinary;
         right = cx + mRoundRectWidthBinary;
         bottom = cy + mRoundRectHeighBinary;
         contentRect.set(left, top, right, bottom);
         canvas.drawRoundRect(contentRect, mRadiu, mRadiu, mPaint);
+        if (isLoadingEnd) {
+            float sweepAngle = (float) mProgress / 100f * 360;
+            mPaint.setStrokeWidth(mStrokeWidth);
+            canvas.drawArc(contentRect, -90f, sweepAngle, false, mPaint);
+        }
     }
 
     /**
@@ -198,8 +209,15 @@ public class DownloadButton extends View {
     public void shrink() {
         if (shrinkAnim == null) {
             shrinkAnim = ObjectAnimator.ofInt(this, "radiu", mRadiu, mRoundRectHeighBinary);
+            shrinkAnim.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    super.onAnimationEnd(animation);
+                    isLoadingEnd = true;
+                }
+            });
+            shrinkAnim.setDuration(500);
         }
-        shrinkAnim.setDuration(500);
         shrinkAnim.start();
 
         if (mRoundRectWidthBinary > mRoundRectHeighBinary) {
@@ -224,6 +242,15 @@ public class DownloadButton extends View {
         invaidateSelft();
     }
 
+    public void setProgress(int progress) {
+        if (progress > 100) {
+            mProgress = 100;
+        } else {
+            mProgress = progress;
+        }
+        invaidateSelft();
+    }
+
     private void invaidateSelft() {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             invalidate();
@@ -232,4 +259,19 @@ public class DownloadButton extends View {
         }
     }
 
+    @Override
+    public void setOnClickListener(@Nullable final OnClickListener l) {
+        OnClickListener listener = new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (l != null) {
+                    shrink();
+                    l.onClick(DownloadButton.this);
+                }
+
+            }
+        };
+
+        super.setOnClickListener(listener);
+    }
 }
