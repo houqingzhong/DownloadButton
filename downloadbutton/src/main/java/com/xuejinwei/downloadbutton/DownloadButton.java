@@ -139,13 +139,13 @@ public class DownloadButton extends View {
         resultW = resultW < 2 * mRadiu ? 2 * mRadiu : resultW;
         resultH = resultH < 2 * mRadiu ? 2 * mRadiu : resultH;
 
-        if (resultW < resultH) {
-            resultW = resultH;
-            resultW = resultW < widthSize ? resultW : widthSize;
+        //因为有线条宽度，所以在确定绘制区域的时候考虑线条宽度
+        mRoundRectWidthBinary = resultW / 2 - mStrokeWidthdBinary;
+        if (resultW < resultH) {// 即使宽<长，也只显示宽度相同的矩形，
+            mRoundRectHeighBinary = resultW / 2 - mStrokeWidthdBinary;
+        } else {
+            mRoundRectHeighBinary = resultH / 2 - mStrokeWidthdBinary;
         }
-
-        mRoundRectWidthBinary = resultW / 2 - mStrokeWidthdBinary;//因为有线条宽度，所以在确定绘制区域的时候考虑线条宽度
-        mRoundRectHeighBinary = resultH / 2 - mStrokeWidthdBinary;//因为有线条宽度，所以在确定绘制区域的时候考虑线条宽度
         setMeasuredDimension(resultW, resultH);
 
         Log.d(TAG, "onMeasure: w:" + resultW + " h:" + resultH + ";mRadiu" + mRadiu);
