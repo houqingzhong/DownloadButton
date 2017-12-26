@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
 import android.os.Looper;
 import android.support.annotation.Nullable;
@@ -40,6 +39,7 @@ public class DownloadButton extends View {
     private int mTextWidth;// 文字的所有宽度
 
     private int mRoundRectWidthBinary;// 矩形宽度，出去边框
+    private int mRoundRectHeighBinary;// 矩形高度，出去边框
 
     private int mTopBottomPadding;// 中间文字上下边距
     private int mLeftRightPadding;// 中间文字左右边距
@@ -48,7 +48,6 @@ public class DownloadButton extends View {
 
     private Paint     mPaint;
     private TextPaint mTextPaint;// 中间文字画笔
-    private Path      mPath;
 
     private RectF contentRect;
 
@@ -80,7 +79,7 @@ public class DownloadButton extends View {
                 TypedValue.COMPLEX_UNIT_SP, DEFAULT_TEXTVIEW_SIZE, context.getResources().getDisplayMetrics()));
         mStrokeWidth = typedArray.getDimensionPixelOffset(R.styleable.DownloadButton_strokeWidth, (int) TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, DEFAULT_STROKE_WIDTH, context.getResources().getDisplayMetrics()));
-        mStrokeWidthdBinary = mStrokeWidth / 2 + 1;
+        mStrokeWidthdBinary = mStrokeWidth / 2;
         mTopBottomPadding = typedArray.getDimensionPixelOffset(R.styleable.DownloadButton_contentPaddingTB, (int) TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, DEFAULT_TB_PADDING, context.getResources().getDisplayMetrics()));
         mLeftRightPadding = typedArray.getDimensionPixelOffset(R.styleable.DownloadButton_contentPaddingLR, (int) TypedValue.applyDimension(
@@ -140,14 +139,21 @@ public class DownloadButton extends View {
         resultW = resultW < 2 * mRadiu ? 2 * mRadiu : resultW;
         resultH = resultH < 2 * mRadiu ? 2 * mRadiu : resultH;
 
+        if (resultW < resultH) {
+            resultW = resultH;
+            resultW = resultW < widthSize ? resultW : widthSize;
+        }
+
+        mRoundRectWidthBinary = resultW / 2 - mStrokeWidthdBinary;//因为有线条宽度，所以在确定绘制区域的时候考虑线条宽度
+        mRoundRectHeighBinary = resultH / 2 - mStrokeWidthdBinary;//因为有线条宽度，所以在确定绘制区域的时候考虑线条宽度
         setMeasuredDimension(resultW, resultH);
+
         Log.d(TAG, "onMeasure: w:" + resultW + " h:" + resultH + ";mRadiu" + mRadiu);
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        mRoundRectWidthBinary = getWidth() / 2 - mRadiu;
         int cx = getWidth() / 2;
         int cy = getHeight() / 2;
 
@@ -164,15 +170,11 @@ public class DownloadButton extends View {
      * @param cy     view的中心相对位置y轴
      */
     private void drawRoundRect(Canvas canvas, int cx, int cy) {
-        if (mPath == null) {
-            mPath = new Path();
-        }
-        mPath.reset();
 
         left = cx - mRoundRectWidthBinary;
-        top = mStrokeWidthdBinary;
+        top = cy - mRoundRectHeighBinary;
         right = cx + mRoundRectWidthBinary;
-        bottom = cy * 2 - mStrokeWidthdBinary;//因为有线条宽度，所以在确定绘制区域的时候考虑线条宽度
+        bottom = cy + mRoundRectHeighBinary;
         contentRect.set(left, top, right, bottom);
         canvas.drawRoundRect(contentRect, mRadiu, mRadiu, mPaint);
     }
@@ -195,18 +197,21 @@ public class DownloadButton extends View {
 
     public void shrink() {
         if (shrinkAnim == null) {
-            shrinkAnim = ObjectAnimator.ofInt(this, "radiu", getHeight() / 2);
+            shrinkAnim = ObjectAnimator.ofInt(this, "radiu", mRadiu, mRoundRectHeighBinary);
         }
-
-        if (widthAnim == null) {
-            widthAnim = ObjectAnimator.ofInt(this, "roundRectWidthBinary", getHeight() / 2);
-        }
-
-
         shrinkAnim.setDuration(500);
         shrinkAnim.start();
-        widthAnim.setDuration(500);
-        widthAnim.start();
+
+        if (mRoundRectWidthBinary > mRoundRectHeighBinary) {
+            // 只有：宽>长的时候才执行矩形缩小
+            // 某些特殊情况：长>宽的时候不执行
+            if (widthAnim == null) {
+                widthAnim = ObjectAnimator.ofInt(this, "roundRectWidthBinary", mRoundRectWidthBinary, mRoundRectHeighBinary);
+            }
+
+            widthAnim.setDuration(500);
+            widthAnim.start();
+        }
     }
 
     public void setRadiu(int radiu) {

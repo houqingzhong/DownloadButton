@@ -11,10 +11,25 @@
     tools:context="com.xuejinwei.downloadbuttondemo.MainActivity">
 
     <com.xuejinwei.downloadbutton.DownloadButton
-        android:layout_width="200dp"
-        android:layout_height="100dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="下载"/>
+
+    <com.xuejinwei.downloadbutton.DownloadButton
+        android:layout_width="150dp"
+        android:layout_height="200dp"
+        android:layout_marginTop="4dp"
         android:text="下载"
+        android:textSize="32sp"
         app:contentPaddingLR="10dp"
         app:contentPaddingTB="8dp"/>
 
+    <com.xuejinwei.downloadbutton.DownloadButton
+        android:layout_width="wrap_content"
+        android:layout_height="80dp"
+        android:layout_marginTop="4dp"
+        android:text="下载"
+        android:textSize="24sp"
+        app:contentPaddingLR="10dp"
+        app:contentPaddingTB="8dp"/>
 </LinearLayout>
