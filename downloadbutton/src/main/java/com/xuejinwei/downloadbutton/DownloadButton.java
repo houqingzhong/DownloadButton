@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.os.Looper;
 import android.support.annotation.Nullable;
@@ -26,11 +27,11 @@ public class DownloadButton extends View {
     private static final String TAG = "DownloadButton";
 
     private static final float DEFAULT_TEXTVIEW_SIZE = 15f;//默认文字大小，单位sp
-    private static final int   DEFAULT_COLOR         = 0xff1395e2;// 默认颜色，文字和边框
+    private static final int   DEFAULT_COLOR         = 0xff1494F7;// 默认颜色，文字和边框
     private static final float DEFAULT_STROKE_WIDTH  = 2.0f;    // 默认边框宽度, dp
-    private static final float DEFAULT_CORNER_RADIUS = 6.0f;   // 默认圆角半径, dp
-    private static final float DEFAULT_LR_PADDING    = 8.0f;      // 默认左右内边距
-    private static final float DEFAULT_TB_PADDING    = 4.0f;      // 默认上下内边距
+    private static final float DEFAULT_CORNER_RADIUS = 3.0f;   // 默认圆角半径, dp
+    private static final float DEFAULT_LR_PADDING    = 16.0f;      // 默认左右内边距
+    private static final float DEFAULT_TB_PADDING    = 6.0f;      // 默认上下内边距
 
     private final int mTextSize;
     private final int mTextColor;
@@ -49,12 +50,16 @@ public class DownloadButton extends View {
     private int mRadiu;// 半径
     private int mProgress = 0;// 百分比
 
-    private boolean isLoadingEnd = false;// 是否loading动画结束
+//    private boolean isLoadingEnd = false;// 是否loading动画结束
 
     private Paint     mPaint;
+    private Paint     mPaintIcon;
     private TextPaint mTextPaint;// 中间文字画笔
 
     private RectF contentRect;
+    private RectF pauseLeftRect, pauseRightRect;
+
+    private Path pathContinue;
 
     // 绘制外边框的四个顶点，和View 当中的mLeft……有区别的
     private int left;
@@ -64,6 +69,29 @@ public class DownloadButton extends View {
 
     private ObjectAnimator shrinkAnim;// 缩小动画圆角
     private ObjectAnimator widthAnim;// 缩小动画，宽度
+
+    private State mCurrentState;
+
+    private OnClickListener mOnClickListener;
+
+    public DownloadListener getDownloadListener() {
+        return mDownloadListener;
+    }
+
+    public void setDownloadListener(DownloadListener downloadListener) {
+        mDownloadListener = downloadListener;
+    }
+
+    private DownloadListener mDownloadListener;
+
+    enum State {
+        INITIAL,// 初始状态
+        FODDING,// 折叠中状态
+        LOADDING,// loading 中状态
+        LOADDING_PAUSE,// loading中暂停状态
+        COMPLETED_ERROR,// 失败
+        COMPLETED_SUCCESSED// 成功
+    }
 
     public DownloadButton(Context context) {
         this(context, null);
@@ -101,6 +129,12 @@ public class DownloadButton extends View {
         mPaint.setStrokeCap(Paint.Cap.ROUND);
         mPaint.setStyle(Paint.Style.STROKE);
 
+        mPaintIcon = new Paint();
+        mPaintIcon.setAntiAlias(true);
+        mPaintIcon.setColor(mTextColor);
+        mPaintIcon.setStrokeCap(Paint.Cap.ROUND);
+        mPaintIcon.setStyle(Paint.Style.FILL);
+
         mTextPaint = new TextPaint();
         mTextPaint.setColor(mTextColor);
         mTextPaint.setTextAlign(Paint.Align.CENTER);
@@ -109,12 +143,33 @@ public class DownloadButton extends View {
         contentRect = new RectF();
         Log.i(TAG, "mTextSize:" + mTextSize + ";mStrokeWidth:" + mStrokeWidth + ";mTopBottomPadding" + mTopBottomPadding + ";mLeftRightPadding" + mLeftRightPadding);
 
-//        setOnClickListener(new OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                shrink();
-//            }
-//        });
+        mOnClickListener = new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                if (mDownloadListener == null) return;
+
+                if (mCurrentState == State.INITIAL) {// 如果当前状态为初始状态
+                    shrink();
+                    return;
+                }
+                if (mCurrentState == State.LOADDING) {//loading ,再次点击暂停
+                    mCurrentState = State.LOADDING_PAUSE;
+                    invaidateSelft();
+                    return;
+                }
+
+                if (mCurrentState == State.LOADDING_PAUSE) {// 暂停中 ,再次点击继续
+                    mCurrentState = State.LOADDING;
+                    invaidateSelft();
+                    return;
+                }
+            }
+        };
+        setOnClickListener(mOnClickListener);
+
+        mCurrentState = State.INITIAL;//初始化状态
+
     }
 
     @Override
@@ -175,7 +230,7 @@ public class DownloadButton extends View {
      */
     private void drawRoundRect(Canvas canvas, int cx, int cy) {
 
-        mPaint.setStrokeWidth(mStrokeWidth / 3);
+        mPaint.setStrokeWidth(mStrokeWidth / 2);
 
         left = cx - mRoundRectWidthBinary;
         top = cy - mRoundRectHeighBinary;
@@ -183,7 +238,7 @@ public class DownloadButton extends View {
         bottom = cy + mRoundRectHeighBinary;
         contentRect.set(left, top, right, bottom);
         canvas.drawRoundRect(contentRect, mRadiu, mRadiu, mPaint);
-        if (isLoadingEnd) {
+        if (mCurrentState == State.LOADDING || mCurrentState == State.LOADDING_PAUSE) {
             float sweepAngle = (float) mProgress / 100f * 360;
             mPaint.setStrokeWidth(mStrokeWidth);
             canvas.drawArc(contentRect, -90f, sweepAngle, false, mPaint);
@@ -198,22 +253,48 @@ public class DownloadButton extends View {
      * @param cy     view的中心相对位置y轴
      */
     private void drawText(Canvas canvas, int cx, int cy) {
+        if (mCurrentState == State.LOADDING) {//绘制暂停按钮，两竖线
+            if (pauseLeftRect == null || pauseRightRect == null) {
 
-        int textDescent = (int) mTextPaint.getFontMetrics().descent;
-        int textAscent = (int) mTextPaint.getFontMetrics().ascent;
-        int delta = Math.abs(textAscent) - textDescent;
+                int pauseWidthBinary = (int) (mRoundRectHeighBinary / 3.5f);//整个暂停按钮的宽度&高度的一半
+                int pauseLeftRightWidth = pauseWidthBinary * 2 / 3;// pause 暂停按钮竖线的宽度，为宽高1/3
+                pauseLeftRect = new RectF();
+                pauseRightRect = new RectF();
+                pauseLeftRect.set(cx - pauseWidthBinary, cy - pauseWidthBinary, cx - pauseWidthBinary + pauseLeftRightWidth, cy + pauseWidthBinary);
+                pauseRightRect.set(cx + pauseWidthBinary - pauseLeftRightWidth, cy - pauseWidthBinary, cx + pauseWidthBinary, cy + pauseWidthBinary);
+            }
+            canvas.drawRect(pauseLeftRect, mPaintIcon);
+            canvas.drawRect(pauseRightRect, mPaintIcon);
+        } else if (mCurrentState == State.LOADDING_PAUSE) {// 绘制继续三角形
+            if (pathContinue == null) {
+                int iconWidthBinary = mRoundRectHeighBinary / 3;//整个继续按钮的宽度&高度的一半
+                int offset = iconWidthBinary / 2;// 三角形左边竖线偏移量 为1/3
+                pathContinue = new Path();
+                pathContinue.moveTo(cx - iconWidthBinary + offset, cy - iconWidthBinary);
+                pathContinue.lineTo(cx + iconWidthBinary, cy);
+                pathContinue.lineTo(cx - iconWidthBinary + offset, cy + iconWidthBinary);
+                pathContinue.close();
+            }
+            canvas.drawPath(pathContinue, mPaintIcon);
+        } else {
+            int textDescent = (int) mTextPaint.getFontMetrics().descent;
+            int textAscent = (int) mTextPaint.getFontMetrics().ascent;
+            int delta = Math.abs(textAscent) - textDescent;
 
-        canvas.drawText(mText, cx, cy + delta / 2, mTextPaint);
+            canvas.drawText(mText, cx, cy + delta / 2, mTextPaint);
+        }
     }
 
     public void shrink() {
+        mCurrentState = State.FODDING;
         if (shrinkAnim == null) {
             shrinkAnim = ObjectAnimator.ofInt(this, "radiu", mRadiu, mRoundRectHeighBinary);
             shrinkAnim.addListener(new AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     super.onAnimationEnd(animation);
-                    isLoadingEnd = true;
+                    mCurrentState = State.LOADDING;
+                    mDownloadListener.onStart();
                 }
             });
             shrinkAnim.setDuration(500);
@@ -261,17 +342,6 @@ public class DownloadButton extends View {
 
     @Override
     public void setOnClickListener(@Nullable final OnClickListener l) {
-        OnClickListener listener = new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (l != null) {
-                    shrink();
-                    l.onClick(DownloadButton.this);
-                }
-
-            }
-        };
-
-        super.setOnClickListener(listener);
+        super.setOnClickListener(mOnClickListener);
     }
 }

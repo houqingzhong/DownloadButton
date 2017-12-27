@@ -11,13 +11,14 @@
     tools:context="com.xuejinwei.downloadbuttondemo.MainActivity">
 
     <com.xuejinwei.downloadbutton.DownloadButton
+        android:id="@+id/download_button02"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="点击下载"/>
+        android:text="下载"/>
 
     <com.xuejinwei.downloadbutton.DownloadButton
         android:layout_width="wrap_content"
-        android:layout_height="200dp"
+        android:layout_height="130dp"
         android:layout_marginTop="4dp"
         android:background="#ccc"
         android:text="下载"
@@ -26,13 +27,24 @@
         app:contentPaddingTB="8dp"/>
 
     <com.xuejinwei.downloadbutton.DownloadButton
-        android:id="@+id/download_button"
+        android:id="@+id/download_button01"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="4dp"
         android:text="下载"
         android:textSize="24sp"
         app:contentPaddingLR="40dp"
         app:contentPaddingTB="24dp"
-        app:strokeWidth="8dp"/>
+        app:strokeWidth="4dp"/>
+
+    <com.xuejinwei.downloadbutton.DownloadButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="点击下载"
+        android:textSize="24sp"
+        app:contentPaddingLR="40dp"
+        app:contentPaddingTB="24dp"
+        app:strokeWidth="4dp"/>
+
 </LinearLayout>
