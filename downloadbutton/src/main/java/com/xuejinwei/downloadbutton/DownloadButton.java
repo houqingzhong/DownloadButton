@@ -42,15 +42,15 @@ public class DownloadButton extends View {
     private int mTextWidth;// 文字的所有宽度
 
     private int mRoundRectWidthBinary;// 矩形宽度，出去边框
+    private int mRoundRectWidthBinaryFinal;// 矩形宽度，出去边框 ,记录初始化状态值
     private int mRoundRectHeighBinary;// 矩形高度，出去边框
 
     private int mTopBottomPadding;// 中间文字上下边距
     private int mLeftRightPadding;// 中间文字左右边距
 
-    private int mRadiu;// 半径
+    private       int mRadiu;// 矩形圆角
+    private final int mRadiuFinal;//矩形圆角，记录初始化状态圆角
     private int mProgress = 0;// 百分比
-
-//    private boolean isLoadingEnd = false;// 是否loading动画结束
 
     private Paint     mPaint;
     private Paint     mPaintIcon;
@@ -67,8 +67,10 @@ public class DownloadButton extends View {
     private int top;
     private int bottom;
 
-    private ObjectAnimator shrinkAnim;// 缩小动画圆角
-    private ObjectAnimator widthAnim;// 缩小动画，宽度
+    private ObjectAnimator mAnimatorRadiuShrink;// 缩小动画圆角
+    private ObjectAnimator mAnimatorRadiuExpand;// 扩大动画圆角
+    private ObjectAnimator mAnimatorWidthShrink;// 缩小动画，宽度
+    private ObjectAnimator mAnimatorWidthExpand;// 扩大动画，宽度
 
     private State mCurrentState;
 
@@ -120,7 +122,7 @@ public class DownloadButton extends View {
 
         mRadiu = typedArray.getDimensionPixelOffset(R.styleable.DownloadButton_radiu, (int) TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, DEFAULT_CORNER_RADIUS, context.getResources().getDisplayMetrics()));
-
+        mRadiuFinal = mRadiu;
         typedArray.recycle();
 
         mPaint = new Paint();
@@ -149,20 +151,33 @@ public class DownloadButton extends View {
 
                 if (mDownloadListener == null) return;
 
+                if (mCurrentState == State.FODDING) return;
+
                 if (mCurrentState == State.INITIAL) {// 如果当前状态为初始状态
                     shrink();
                     return;
                 }
                 if (mCurrentState == State.LOADDING) {//loading ,再次点击暂停
                     mCurrentState = State.LOADDING_PAUSE;
+                    mDownloadListener.onPause();
                     invaidateSelft();
                     return;
                 }
 
                 if (mCurrentState == State.LOADDING_PAUSE) {// 暂停中 ,再次点击继续
                     mCurrentState = State.LOADDING;
+                    mDownloadListener.onContinue();
                     invaidateSelft();
                     return;
+                }
+
+                if (mCurrentState == State.COMPLETED_SUCCESSED) {// 下载成功 ,点击执行回调操作，打开，安装之类的
+                    mDownloadListener.onComplete();
+                    return;
+                }
+
+                if (mCurrentState == State.COMPLETED_ERROR) {// 下载错误,再次点击的操作
+                    // TODO: 2017/12/28 下载错误再次点击操作，待添加
                 }
             }
         };
@@ -205,6 +220,7 @@ public class DownloadButton extends View {
         } else {
             mRoundRectHeighBinary = resultH / 2 - mStrokeWidthdBinary;
         }
+        mRoundRectWidthBinaryFinal = mRoundRectWidthBinary;
         setMeasuredDimension(resultW, resultH);
 
         Log.d(TAG, "onMeasure: w:" + resultW + " h:" + resultH + ";mRadiu" + mRadiu);
@@ -276,7 +292,9 @@ public class DownloadButton extends View {
                 pathContinue.close();
             }
             canvas.drawPath(pathContinue, mPaintIcon);
+        } else if (mCurrentState == State.FODDING) {
         } else {
+
             int textDescent = (int) mTextPaint.getFontMetrics().descent;
             int textAscent = (int) mTextPaint.getFontMetrics().ascent;
             int delta = Math.abs(textAscent) - textDescent;
@@ -285,11 +303,12 @@ public class DownloadButton extends View {
         }
     }
 
+    // 执行view 缩小动画
     public void shrink() {
         mCurrentState = State.FODDING;
-        if (shrinkAnim == null) {
-            shrinkAnim = ObjectAnimator.ofInt(this, "radiu", mRadiu, mRoundRectHeighBinary);
-            shrinkAnim.addListener(new AnimatorListenerAdapter() {
+        if (mAnimatorRadiuShrink == null) {
+            mAnimatorRadiuShrink = ObjectAnimator.ofInt(this, "radiu", mRadiu, mRoundRectHeighBinary);
+            mAnimatorRadiuShrink.addListener(new AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     super.onAnimationEnd(animation);
@@ -297,19 +316,69 @@ public class DownloadButton extends View {
                     mDownloadListener.onStart();
                 }
             });
-            shrinkAnim.setDuration(500);
+            mAnimatorRadiuShrink.setDuration(500);
         }
-        shrinkAnim.start();
+        mAnimatorRadiuShrink.start();
 
-        if (mRoundRectWidthBinary > mRoundRectHeighBinary) {
+        if (mRoundRectWidthBinaryFinal > mRoundRectHeighBinary) {
             // 只有：宽>长的时候才执行矩形缩小
             // 某些特殊情况：长>宽的时候不执行
-            if (widthAnim == null) {
-                widthAnim = ObjectAnimator.ofInt(this, "roundRectWidthBinary", mRoundRectWidthBinary, mRoundRectHeighBinary);
+            if (mAnimatorWidthShrink == null) {
+                mAnimatorWidthShrink = ObjectAnimator.ofInt(this, "roundRectWidthBinary", mRoundRectWidthBinary, mRoundRectHeighBinary);
             }
 
-            widthAnim.setDuration(500);
-            widthAnim.start();
+            mAnimatorWidthShrink.setDuration(500);
+            mAnimatorWidthShrink.start();
+        }
+    }
+
+    /**
+     * 执行view 扩大动画
+     */
+    public void expand() {
+
+        mCurrentState = State.FODDING;
+
+        if (mAnimatorRadiuExpand == null) {
+            Log.i(TAG, mRadiu + "," + mRadiuFinal);
+            mAnimatorRadiuExpand = ObjectAnimator.ofInt(this, "radiu", mRadiu, mRadiuFinal);
+            mAnimatorRadiuExpand.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    super.onAnimationEnd(animation);
+                    mCurrentState = State.COMPLETED_SUCCESSED;
+                }
+            });
+            mAnimatorRadiuExpand.setDuration(300);
+        }
+
+        if (mRoundRectWidthBinaryFinal > mRoundRectHeighBinary) {
+            // 只有：宽>长的时候才执行矩形缩小
+            // 某些特殊情况：长>宽的时候不执行
+            if (mAnimatorWidthExpand == null) {
+                mAnimatorWidthExpand = ObjectAnimator.ofInt(this, "roundRectWidthBinary", mRoundRectWidthBinary, mRoundRectWidthBinaryFinal);
+            }
+
+            mAnimatorWidthExpand.setDuration(300);
+
+        }
+
+        Looper getLooper = Looper.myLooper();
+        if (getLooper == null || getLooper != Looper.getMainLooper()) {
+            this.post(new Runnable() {
+                @Override
+                public void run() {
+                    mAnimatorRadiuExpand.start();
+                    if (mRoundRectWidthBinaryFinal > mRoundRectHeighBinary) {
+                        mAnimatorWidthExpand.start();
+                    }
+                }
+            });
+        } else {
+            mAnimatorRadiuExpand.start();
+            if (mRoundRectWidthBinaryFinal > mRoundRectHeighBinary) {
+                mAnimatorWidthExpand.start();
+            }
         }
     }
 
@@ -330,6 +399,11 @@ public class DownloadButton extends View {
             mProgress = progress;
         }
         invaidateSelft();
+    }
+
+    public void setComplete() {
+        if (mDownloadListener == null) return;
+        expand();
     }
 
     private void invaidateSelft() {

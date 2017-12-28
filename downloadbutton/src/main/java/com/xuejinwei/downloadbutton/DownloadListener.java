@@ -11,8 +11,8 @@ public interface DownloadListener {
 
     void onPause();// 暂停下载
 
-    void onContinue();// 继续下载
+    void onContinue();// 继续下载，
 
-    void onStop();// 停止下载
+    void onComplete();// 下载完成，点击执行回调操作，打开，安装之类的
 
 }
