@@ -43,6 +43,11 @@ public class MainActivity extends AppCompatActivity {
             public void onComplete() {
                 Toast.makeText(MainActivity.this, "下载完成，模拟安装", Toast.LENGTH_SHORT).show();
             }
+
+            @Override
+            public void onRetry() {
+
+            }
         });
 
         mDownloadButton02.setDownloadListener(new DownloadListener() {
@@ -65,6 +70,11 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onComplete() {
                 Toast.makeText(MainActivity.this, "下载完成，模拟打开", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onRetry() {
+
             }
         });
 

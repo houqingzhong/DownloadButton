@@ -12,6 +12,7 @@ import android.graphics.RectF;
 import android.os.Looper;
 import android.support.annotation.Nullable;
 import android.text.TextPaint;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.TypedValue;
@@ -26,18 +27,23 @@ public class DownloadButton extends View {
 
     private static final String TAG = "DownloadButton";
 
-    private static final float DEFAULT_TEXTVIEW_SIZE = 15f;//默认文字大小，单位sp
-    private static final int   DEFAULT_COLOR         = 0xff1494F7;// 默认颜色，文字和边框
-    private static final float DEFAULT_STROKE_WIDTH  = 2.0f;    // 默认边框宽度, dp
-    private static final float DEFAULT_CORNER_RADIUS = 3.0f;   // 默认圆角半径, dp
-    private static final float DEFAULT_LR_PADDING    = 16.0f;      // 默认左右内边距
-    private static final float DEFAULT_TB_PADDING    = 6.0f;      // 默认上下内边距
+    private static final String DEFAULT_TEXT           = "下载";//默认文字
+    private static final String DEFAULT_TEXT_SUCCESSED = "安装";//默认成功文字
+    private static final String DEFAULT_TEXT_ERROR     = "重试";//默认失败文字
+    private static final float  DEFAULT_TEXTVIEW_SIZE  = 15f;//默认文字大小，单位sp
+    private static final int    DEFAULT_COLOR          = 0xff1494F7;// 默认颜色，文字和边框
+    private static final float  DEFAULT_STROKE_WIDTH   = 2.0f;    // 默认边框宽度, dp
+    private static final float  DEFAULT_CORNER_RADIUS  = 3.0f;   // 默认圆角半径, dp
+    private static final float  DEFAULT_LR_PADDING     = 16.0f;      // 默认左右内边距
+    private static final float  DEFAULT_TB_PADDING     = 6.0f;      // 默认上下内边距
 
-    private final int mTextSize;
-    private final int mTextColor;
-    private final int mStrokeWidth;// 边框的宽度
-    private final int mStrokeWidthdBinary;// 边框宽度的二分之一
-    private String mText = "下载";
+    private final int    mTextSize;
+    private final int    mTextColor;
+    private final int    mStrokeWidth;// 边框的宽度
+    private final int    mStrokeWidthdBinary;// 边框宽度的二分之一
+    private       String mText;
+    private       String mTextSuccessed;
+    private       String mTextError;
 
     private int mTextWidth;// 文字的所有宽度
 
@@ -109,6 +115,17 @@ public class DownloadButton extends View {
         TypedArray typedArray = context.obtainStyledAttributes(attrs, R.styleable.DownloadButton);
 
         mText = typedArray.getString(R.styleable.DownloadButton_android_text);
+        mTextSuccessed = typedArray.getString(R.styleable.DownloadButton_textSuccessed);
+        mTextError = typedArray.getString(R.styleable.DownloadButton_textError);
+        if (TextUtils.isEmpty(mText)) {
+            mText = DEFAULT_TEXT;
+        }
+        if (TextUtils.isEmpty(mTextSuccessed)) {
+            mTextSuccessed = DEFAULT_TEXT_SUCCESSED;
+        }
+        if (TextUtils.isEmpty(mTextError)) {
+            mTextError = DEFAULT_TEXT_ERROR;
+        }
         mTextColor = typedArray.getColor(R.styleable.DownloadButton_android_textColor, DEFAULT_COLOR);
         mTextSize = typedArray.getDimensionPixelSize(R.styleable.DownloadButton_android_textSize, (int) TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_SP, DEFAULT_TEXTVIEW_SIZE, context.getResources().getDisplayMetrics()));
@@ -177,7 +194,8 @@ public class DownloadButton extends View {
                 }
 
                 if (mCurrentState == State.COMPLETED_ERROR) {// 下载错误,再次点击的操作
-                    // TODO: 2017/12/28 下载错误再次点击操作，待添加
+                    mProgress = 0;
+                    mDownloadListener.onRetry();
                 }
             }
         };
@@ -198,7 +216,14 @@ public class DownloadButton extends View {
         int resultW = widthSize;// 最终的测量宽度
         int resultH = heightSize;// 最终的测量高度
 
-        mTextWidth = (int) mTextPaint.measureText(mText);
+        int textWidth, textSuccessedWidth, textErrorWidth;
+
+        textWidth = (int) mTextPaint.measureText(mText);
+        textSuccessedWidth = (int) mTextPaint.measureText(mTextSuccessed);
+        textErrorWidth = (int) mTextPaint.measureText(mTextError);
+
+        mTextWidth = textWidth > textSuccessedWidth ? textWidth : textSuccessedWidth;
+        mTextWidth = mTextWidth > textErrorWidth ? mTextWidth : textErrorWidth;
 
         if (heightMode == MeasureSpec.AT_MOST) {
             resultH = mTextSize + mTopBottomPadding * 2 + mRadiu * 2;
@@ -292,8 +317,19 @@ public class DownloadButton extends View {
                 pathContinue.close();
             }
             canvas.drawPath(pathContinue, mPaintIcon);
-        } else if (mCurrentState == State.FODDING) {
-        } else {
+        } else if (mCurrentState == State.COMPLETED_SUCCESSED) {
+            int textDescent = (int) mTextPaint.getFontMetrics().descent;
+            int textAscent = (int) mTextPaint.getFontMetrics().ascent;
+            int delta = Math.abs(textAscent) - textDescent;
+
+            canvas.drawText(mTextSuccessed, cx, cy + delta / 2, mTextPaint);
+        } else if (mCurrentState == State.COMPLETED_ERROR) {
+            int textDescent = (int) mTextPaint.getFontMetrics().descent;
+            int textAscent = (int) mTextPaint.getFontMetrics().ascent;
+            int delta = Math.abs(textAscent) - textDescent;
+
+            canvas.drawText(mTextError, cx, cy + delta / 2, mTextPaint);
+        } else if (mCurrentState == State.INITIAL) {
 
             int textDescent = (int) mTextPaint.getFontMetrics().descent;
             int textAscent = (int) mTextPaint.getFontMetrics().ascent;
@@ -334,8 +370,10 @@ public class DownloadButton extends View {
 
     /**
      * 执行view 扩大动画
+     *
+     * @param state 动画结束的状态，成功、失败
      */
-    public void expand() {
+    public void expand(final State state) {
 
         mCurrentState = State.FODDING;
 
@@ -346,7 +384,7 @@ public class DownloadButton extends View {
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     super.onAnimationEnd(animation);
-                    mCurrentState = State.COMPLETED_SUCCESSED;
+                    mCurrentState = state;
                 }
             });
             mAnimatorRadiuExpand.setDuration(300);
@@ -403,7 +441,27 @@ public class DownloadButton extends View {
 
     public void setComplete() {
         if (mDownloadListener == null) return;
-        expand();
+        expand(State.COMPLETED_SUCCESSED);
+    }
+
+    /**
+     * 设置撞他为失败
+     */
+    public void setError() {
+        if (mDownloadListener == null) return;
+        switch (mCurrentState) {
+            case INITIAL:
+            case COMPLETED_ERROR:
+            case COMPLETED_SUCCESSED:
+                mCurrentState = State.COMPLETED_ERROR;
+                invaidateSelft();
+                break;
+            case LOADDING:
+            case LOADDING_PAUSE:
+                expand(State.COMPLETED_ERROR);
+                break;
+
+        }
     }
 
     private void invaidateSelft() {

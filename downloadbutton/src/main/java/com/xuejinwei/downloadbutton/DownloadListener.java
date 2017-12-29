@@ -15,4 +15,5 @@ public interface DownloadListener {
 
     void onComplete();// 下载完成，点击执行回调操作，打开，安装之类的
 
+    void onRetry();//下载错误后重试
 }
