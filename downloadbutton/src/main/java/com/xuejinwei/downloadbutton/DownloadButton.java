@@ -2,7 +2,7 @@ package com.xuejinwei.downloadbutton;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
-import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
@@ -47,15 +47,17 @@ public class DownloadButton extends View {
 
     private int mTextWidth;// 文字的所有宽度
 
-    private int mRoundRectWidthBinary;// 矩形宽度，出去边框
-    private int mRoundRectWidthBinaryFinal;// 矩形宽度，出去边框 ,记录初始化状态值
-    private int mRoundRectHeighBinary;// 矩形高度，出去边框
+    private int mRoundRectWidthBinary;// 矩形宽度，除去边框，矩形绘制都用该值
+    private int mRoundRectWidthBinaryFinal;// 矩形宽度，除去边框 ,记录初始化状态值
+    private int mRoundRectWidthDifference;// 矩形变化前后的差值，正数
+    private int mRoundRectHeighBinary;// 矩形高度，除去边框
 
     private int mTopBottomPadding;// 中间文字上下边距
     private int mLeftRightPadding;// 中间文字左右边距
 
-    private       int mRadiu;// 矩形圆角
-    private final int mRadiuFinal;//矩形圆角，记录初始化状态圆角
+    private int mRadiu;// 矩形圆角，绘制都用该值
+    private int mRadiuFinal;//矩形圆角，记录初始化状态圆角
+    private int mRadiuDifference;// 矩形圆角变化前后差值，正数
     private int mProgress = 0;// 百分比
 
     private Paint     mPaint;
@@ -73,10 +75,7 @@ public class DownloadButton extends View {
     private int top;
     private int bottom;
 
-    private ObjectAnimator mAnimatorRadiuShrink;// 缩小动画圆角
-    private ObjectAnimator mAnimatorRadiuExpand;// 扩大动画圆角
-    private ObjectAnimator mAnimatorWidthShrink;// 缩小动画，宽度
-    private ObjectAnimator mAnimatorWidthExpand;// 扩大动画，宽度
+    private ValueAnimator mValueAnimator;
 
     private State mCurrentState;
 
@@ -248,6 +247,8 @@ public class DownloadButton extends View {
         mRoundRectWidthBinaryFinal = mRoundRectWidthBinary;
         setMeasuredDimension(resultW, resultH);
 
+        mRadiuDifference = mRoundRectHeighBinary - mRadiuFinal;
+        mRoundRectWidthDifference = mRoundRectWidthBinaryFinal - mRoundRectHeighBinary;
         Log.d(TAG, "onMeasure: w:" + resultW + " h:" + resultH + ";mRadiu" + mRadiu);
     }
 
@@ -342,30 +343,32 @@ public class DownloadButton extends View {
     // 执行view 缩小动画
     public void shrink() {
         mCurrentState = State.FODDING;
-        if (mAnimatorRadiuShrink == null) {
-            mAnimatorRadiuShrink = ObjectAnimator.ofInt(this, "radiu", mRadiu, mRoundRectHeighBinary);
-            mAnimatorRadiuShrink.addListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    super.onAnimationEnd(animation);
-                    mCurrentState = State.LOADDING;
-                    mDownloadListener.onStart();
-                }
-            });
-            mAnimatorRadiuShrink.setDuration(500);
-        }
-        mAnimatorRadiuShrink.start();
 
-        if (mRoundRectWidthBinaryFinal > mRoundRectHeighBinary) {
-            // 只有：宽>长的时候才执行矩形缩小
-            // 某些特殊情况：长>宽的时候不执行
-            if (mAnimatorWidthShrink == null) {
-                mAnimatorWidthShrink = ObjectAnimator.ofInt(this, "roundRectWidthBinary", mRoundRectWidthBinary, mRoundRectHeighBinary);
+        if (mValueAnimator == null) {
+            mValueAnimator = ValueAnimator.ofFloat();
+            mValueAnimator.setFloatValues(0.0f, 1.0f);
+            mValueAnimator.setDuration(300);
+        }
+
+        mValueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                float currentValue = (Float) animation.getAnimatedValue();
+                mRadiu = (int) (mRadiuFinal + currentValue * mRadiuDifference);//圆角增加
+                mRoundRectWidthBinary = (int) (mRoundRectWidthBinaryFinal - currentValue * mRoundRectWidthDifference);// 矩形宽度减少
+                invaidateSelft();
+
             }
+        });
+        mValueAnimator.addListener(new AnimatorListenerAdapter() {
 
-            mAnimatorWidthShrink.setDuration(500);
-            mAnimatorWidthShrink.start();
-        }
+            public void onAnimationEnd(Animator animation) {
+                super.onAnimationEnd(animation);
+                mCurrentState = State.LOADDING;
+                mDownloadListener.onStart();
+            }
+        });
+        mValueAnimator.start();
     }
 
     /**
@@ -377,46 +380,40 @@ public class DownloadButton extends View {
 
         mCurrentState = State.FODDING;
 
-        if (mAnimatorRadiuExpand == null) {
-            Log.i(TAG, mRadiu + "," + mRadiuFinal);
-            mAnimatorRadiuExpand = ObjectAnimator.ofInt(this, "radiu", mRadiu, mRadiuFinal);
-            mAnimatorRadiuExpand.addListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    super.onAnimationEnd(animation);
-                    mCurrentState = state;
-                }
-            });
-            mAnimatorRadiuExpand.setDuration(300);
+        if (mValueAnimator == null) {
+            mValueAnimator = ValueAnimator.ofFloat();
+            mValueAnimator.setFloatValues(0.0f, 1.0f);
+            mValueAnimator.setDuration(300);
         }
 
-        if (mRoundRectWidthBinaryFinal > mRoundRectHeighBinary) {
-            // 只有：宽>长的时候才执行矩形缩小
-            // 某些特殊情况：长>宽的时候不执行
-            if (mAnimatorWidthExpand == null) {
-                mAnimatorWidthExpand = ObjectAnimator.ofInt(this, "roundRectWidthBinary", mRoundRectWidthBinary, mRoundRectWidthBinaryFinal);
+        mValueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                float currentValue = (Float) animation.getAnimatedValue();
+                mRadiu = (int) (mRoundRectHeighBinary - currentValue * mRadiuDifference);// 圆角减少
+                mRoundRectWidthBinary = (int) (mRoundRectHeighBinary + currentValue * mRoundRectWidthDifference);// 矩形宽度增加
+                invaidateSelft();
+
             }
+        });
+        mValueAnimator.addListener(new AnimatorListenerAdapter() {
 
-            mAnimatorWidthExpand.setDuration(300);
-
-        }
+            public void onAnimationEnd(Animator animation) {
+                super.onAnimationEnd(animation);
+                mCurrentState = state;
+            }
+        });
 
         Looper getLooper = Looper.myLooper();
         if (getLooper == null || getLooper != Looper.getMainLooper()) {
             this.post(new Runnable() {
                 @Override
                 public void run() {
-                    mAnimatorRadiuExpand.start();
-                    if (mRoundRectWidthBinaryFinal > mRoundRectHeighBinary) {
-                        mAnimatorWidthExpand.start();
-                    }
+                    mValueAnimator.start();
                 }
             });
         } else {
-            mAnimatorRadiuExpand.start();
-            if (mRoundRectWidthBinaryFinal > mRoundRectHeighBinary) {
-                mAnimatorWidthExpand.start();
-            }
+            mValueAnimator.start();
         }
     }
 
@@ -428,6 +425,14 @@ public class DownloadButton extends View {
     public void setRoundRectWidthBinary(int roundRectWidthBinary) {
         mRoundRectWidthBinary = roundRectWidthBinary;
         invaidateSelft();
+    }
+
+    public int getRadiu() {
+        return mRadiu;
+    }
+
+    public int getRoundRectWidthBinary() {
+        return mRoundRectWidthBinary;
     }
 
     public void setProgress(int progress) {
